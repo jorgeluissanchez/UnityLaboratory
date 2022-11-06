@@ -9,6 +9,14 @@ TagManager:
   - Wall
   - SpawnPoints
   - PowerUp
+  - Boxes
+  - Slow
+  - RightButton
+  - LeftButton
+  - Robot
+  - Derecha
+  - Izquierda
+  - Centro
   layers:
   - Default
   - TransparentFX

@@ -4,243 +4,189 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    // VARIABLES
-
-    // PLAYER
-    [SerializeField] Transform playerPointer;
+    //VARIABLES
     Vector2 playerPointerDirection;
     [SerializeField] Camera playerCamara;
-    [SerializeField] Animator playerAnimation;
     [SerializeField] SpriteRenderer playerSpriteRenderer;
     CamaraController playerCameraController;
-
-    // PLAYER HEALTH
-    [SerializeField] int playerHealth = 5;
-    public int PlayerHealth
+    [SerializeField] int playerCrash = 0;
+    public int PlayerCrash
     {
-        get => playerHealth;
+        get => playerCrash;
         set
         {
-            playerHealth = value;
-            UIManager.Instance.UpdateUIHealth(playerHealth);
+            playerCrash = value;
+            UIManager.Instance.UpdateUICrash(playerCrash);
         }
     }
-
-    // MOVE
-    public float moveFriction = 4f, moveAcceleration = 2f, moveMaxSpeed = 6f;
+    float moveAcceleration = 4f, moveMaxSpeed = 6f;
     float moveHorizontal, moveVertical;
-    Vector3 moveDirection, moveSpeed;
-
-    // BULLET
-    bool bulletLoaded = true;
-    [SerializeField] Transform bulletPrefab;
-    [SerializeField] float bulletRate = 1;
-
-    // INVULNERABLE
+    Vector3 moveDirection;
+     private Vector3 moveSpeed;
+    public float MoveSpeedY
+    {
+        get => moveSpeed.y;
+        set
+        {
+            moveSpeed.y = value;
+            UIManager.Instance.UpdateUISpeedY(Mathf.Round(Mathf.Abs(moveSpeed.y)));
+        }
+    }
+    public float MoveSpeedX
+    {
+        get => moveSpeed.x;
+        set
+        {
+            moveSpeed.x = value;
+            UIManager.Instance.UpdateUISpeedX(Mathf.Round(Mathf.Abs(moveSpeed.x)));
+        }
+    }
     [SerializeField] int invulnerableTime = 3;
     [SerializeField] bool invulnerableState;
-
-    // POWER
-    bool powerBulletState;
-
-    //BLINK
     [SerializeField] float blinkRate = 1;
-
+    //MANAGE INITIAL POSITION AND CAMERA
     void Start()
     {
-        transform.position = new Vector3(0, 0, 0);
+        transform.position = new Vector3((float)-1.5, -3, 0);
         playerCameraController = FindObjectOfType<CamaraController>();
     }
-
+    //MANAGE MOVEMENT
     void Update()
     {
-        // MOVE AND ANIMATION
-        moveHorizontal = Input.GetAxis("Horizontal");
-        moveVertical = Input.GetAxis("Vertical");
-        moveDirection.x = moveHorizontal;
-        moveDirection.y = moveVertical;
         transform.position += Time.deltaTime * moveSpeed;
         accelerationManager();
-        playerAnimation.SetFloat("speedMagnitude", moveSpeed.magnitude);
-
-        // POINTER AND FLIP
-        playerPointerDirection = playerCamara.ScreenToWorldPoint(Input.mousePosition) - transform.position;
-        playerPointer.position = transform.position + (Vector3)playerPointerDirection.normalized;
-        if (playerPointer.position.x < transform.position.x)
-        {
-            playerSpriteRenderer.flipX = true;
-        } else if (playerPointer.position.x > transform.position.x)
-        {
-            playerSpriteRenderer.flipX = false;
-        }
-
-        // BULLET
-        if (Input.GetMouseButton(0) && bulletLoaded)
-        {
-            bulletLoaded = false;
-            float bulletAngle = Mathf.Atan2(playerPointerDirection.y, playerPointerDirection.x) * Mathf.Rad2Deg; //find the angle in rad and convert it to deg
-            Quaternion bulletRotation = Quaternion.AngleAxis(bulletAngle, Vector3.forward); // convert the deg to rotation information
-            Transform bulletClone = Instantiate(bulletPrefab, transform.position, bulletRotation);
-            
-            if (powerBulletState)
-            {
-                bulletClone.GetComponent<Bullet>().powerBullet = true;
-            }
-            
-            StartCoroutine(bulletReloader());
-        }
-
     }
-
-    // wait to use the bullet
-    IEnumerator bulletReloader()
-    {
-        yield return new WaitForSeconds(1 / bulletRate);
-        bulletLoaded = true;
-    }
-
-    //TAKE DAMAGE
+    //MANAGE DAMAGE
     public void TakeDamage()
     {
-        if (invulnerableState) // if the player is invulnerable exit
+        if (invulnerableState)
             return;
-
-        PlayerHealth--; //take damage
-        invulnerableState = true; //make invulnerable
-        playerCameraController.shake(); //Shake camara
-
-        StartCoroutine(turnOffInvulnerability()); //wait tu turn off
-
-        //show the game over
-        if (PlayerHealth <= 0)
-        {
-            GameManager.Instance.gameOver = true;
-            UIManager.Instance.ShowGameOver();
-        }
+        PlayerCrash++;
+        invulnerableState = true;
+        playerCameraController.shake(); 
+        StartCoroutine(turnOffInvulnerability());
     }
-
-    //make vulnerable
+    //MANAGE INVULNERABILITY
     IEnumerator turnOffInvulnerability()
     {
-        StartCoroutine(blinkEffect());//blinks
-        yield return new WaitForSeconds(invulnerableTime); //wait
-        invulnerableState = false; //turn off
+        StartCoroutine(blinkEffect());
+        yield return new WaitForSeconds(invulnerableTime);
+        invulnerableState = false;
     }
-
-    //BLINK
-    IEnumerator blinkEffect()
+    //MANAGE BLINK EFFECT
+    private IEnumerator blinkEffect()
     {
         int blinkTimes = 10;
         while(blinkTimes > 0)
         {
-            playerSpriteRenderer.enabled = false; //turn off
-            yield return new WaitForSeconds(blinkTimes * blinkRate); //wait
-            playerSpriteRenderer.enabled = true; //turn on
-            yield return new WaitForSeconds(blinkTimes * blinkRate); //wait
+            playerSpriteRenderer.enabled = false;
+            yield return new WaitForSeconds(blinkTimes * blinkRate);
+            playerSpriteRenderer.enabled = true;
+            yield return new WaitForSeconds(blinkTimes * blinkRate);
             blinkTimes--;
         }
     }
-
-
-    //POWER
+    //MANAGE SLOW EFFECT
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        //validate power
-        if (collision.CompareTag("PowerUp")) 
-        {
-            //validate power type
-            switch (collision.GetComponent<PowerUp>().powerUpType)
-            {
-                case PowerUp.PowerUpType.Range: //increment the bullet rate
-                    bulletRate++;
-                    break;
-
-                case PowerUp.PowerUpType.Shot: //turn on the power bullet state
-                    powerBulletState = true;
-                    break;
-            }
-
-            Destroy(collision.gameObject, 0.1f); //wait 0.1 and destroy de powerUP item
+        if (collision.CompareTag("Slow")){
+            StartCoroutine(blinkEffect());
+            playerCameraController.shake();
         }
     }
 
-    // MANAGE THE ACCELERATION
+    float numTec = 0;
+    //ROTATE CAR
+    private IEnumerator RotateCar(float rotateTimes, float rotateAngle)
+    {
+        for (int i = 0; i < rotateTimes; i++)
+        {
+            transform.RotateAround(transform.position, Vector3.back * Time.deltaTime, rotateAngle);
+            yield return new WaitForSeconds(0.01f);
+        }
+    }
+    //ACCELERATION MANAGER
     private void accelerationManager() {
-
-        //acceleration in x controller
-        if (moveDirection.x == 0)
+        //MANAGE ACCELERATION IN X 
+        if(  transform.position.x <= 2 && transform.position.x >= -8)
         {
-            if (Mathf.Abs(moveSpeed.x) <= 0.1f)
+            if (Input.GetKeyDown("right") && numTec == 0) {
+                MoveSpeedX = -3;
+                StartCoroutine(RotateCar(10, 1f));
+                numTec = 1;
+            } 
+            if (Input.GetKeyUp("right") && numTec == 1)
             {
-                moveSpeed.x = 0;
+                MoveSpeedX = 0;
+                StartCoroutine(RotateCar(10, -1f));
+                numTec = 0;
+            } 
+            if (Input.GetKeyDown("left") && numTec == 0)
+            {
+                MoveSpeedX = 3;
+                StartCoroutine(RotateCar(10, -1f));
+                numTec = 2;
             }
-            else
+            if (Input.GetKeyUp("left") && numTec == 2)
             {
-                if (moveSpeed.x > 0)
+                MoveSpeedX = 0;
+                StartCoroutine(RotateCar(10, 1f));
+                numTec = 0;
+            }
+            /*
+            if (Input.GetMouseButtonDown(0))
+            {
+                if(Input.mousePosition.x < Screen.width / 2 && numTec == 0)
                 {
-                    moveSpeed.x -= moveFriction * Time.deltaTime;
-                } 
-                else
+                    MoveSpeedX = 3;
+                    StartCoroutine(RotateCar(10, -1f));
+                    numTec = Input.mousePosition.x;
+                }
+                if(Input.mousePosition.x > Screen.width / 2 && numTec == 0)
                 {
-                    moveSpeed.x += moveFriction * Time.deltaTime;
+                    MoveSpeedX = -3;
+                    StartCoroutine(RotateCar(10, 1f));
+                    numTec = Input.mousePosition.x;
                 }
             }
+            if (Input.GetMouseButtonUp(0))
+            {
+                if(numTec <  Screen.width / 2)
+                {
+                    MoveSpeedX = 0;
+                    StartCoroutine(RotateCar(10, 1f));
+                    numTec = 0;
+                }
+                if (numTec >  Screen.width / 2)
+                {
+                    MoveSpeedX = 0;
+                    StartCoroutine(RotateCar(10, -1f));
+                    numTec = 0;
+                }
+            }*/
+        } else {
+            if(transform.position.x > 2)
+            {
+                MoveSpeedX = -1;
+                StartCoroutine(RotateCar(10, 36f));
+                
+            }
+            if(transform.position.x < -8)
+            {
+                MoveSpeedX = 1;
+                StartCoroutine(RotateCar(10, -36f));
+            }
+            playerCameraController.shake();
+            MoveSpeedY = 0;
         }
-        else 
+        //MANAGE ACCELERATION IN Y
+        if (Mathf.Abs(MoveSpeedY) >= moveMaxSpeed)
         {
-            if(moveDirection.x * moveSpeed.x < 0)
-            {
-                moveSpeed.x += moveFriction * Time.deltaTime * moveDirection.x;
-            }
-            else
-            {
-                if (Mathf.Abs(moveSpeed.x) >= moveMaxSpeed)
-                {
-                    moveSpeed.x = moveMaxSpeed * moveDirection.x;
-                } 
-                else
-                {
-                    moveSpeed.x += moveAcceleration * Time.deltaTime * moveDirection.x;
-                }
-            }
-        }
-
-        //acceleration in y controller
-        if (moveDirection.y == 0)
-        {
-            if (Mathf.Abs(moveSpeed.y) <= 0.1f)
-            {
-                moveSpeed.y = 0;
-            }
-            else
-            {
-                if (moveSpeed.y > 0)
-                {
-                    moveSpeed.y -= moveFriction * Time.deltaTime;
-                }
-                else
-                {
-                    moveSpeed.y += moveFriction * Time.deltaTime;
-                }
-            }
+            MoveSpeedY = moveMaxSpeed * (-1);
         }
         else
         {
-            if (moveDirection.y * moveSpeed.x < 0)
-            {
-                moveSpeed.y += moveFriction * Time.deltaTime * moveDirection.y;
-            }
-            else
-            {
-                if (Mathf.Abs(moveSpeed.y) >= moveMaxSpeed)
-                {
-                    moveSpeed.y = moveMaxSpeed * moveDirection.y;
-                }
-                else
-                {
-                    moveSpeed.y += moveAcceleration * Time.deltaTime * moveDirection.y;
-                }
-            }
+            MoveSpeedY -= moveAcceleration * Time.deltaTime;
         }
     }
 }

@@ -13,13 +13,11 @@ public class GameManager : MonoBehaviour
             Instance = this;
         }
     }
-
     //GAME OVER
     public bool gameOver;
-
+    public bool gameWin;
     //GLOBALS
     [Range(1, 10)] public int globalDifficulty = 1;
-
     public int globalTime = 30;
     public int GlobalTime
     {
@@ -30,7 +28,6 @@ public class GameManager : MonoBehaviour
             UIManager.Instance.UpdateUITime(globalTime);
         }
     }
-
     [SerializeField]  int globalScore;
     public int GlobalScore
     {
@@ -45,24 +42,22 @@ public class GameManager : MonoBehaviour
             }
         }
     }
-
     //Time Manage
     private void Start()
     {
         StartCoroutine(controlTime());
     }
-
     //contros of the time's decrement
     IEnumerator controlTime()
     {
         //time's decrement
         while(GlobalTime > 0)
         {
-            yield return new WaitForSeconds(1);//wait
-            GlobalTime--;//decrement
+            yield return new WaitForSeconds(1);
+            GlobalTime--;
+            GlobalScore= GlobalScore + 100;
         }
-
-        gameOver = true;//show the game over
+        gameOver = true;
         UIManager.Instance.ShowGameOver();
     }
 }
